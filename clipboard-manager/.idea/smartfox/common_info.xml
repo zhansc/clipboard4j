@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SmartFoxWorkToolsProjectState">
-    <option name="branch" value="main" />
-    <option name="gitUrl" value="https://github.com/zhansc/clipboard4j.git" />
-    <option name="localBranch" value="main" />
-    <option name="revision" value="dff62689ce04c15b05da767e25fc80649f3473c6" />
-  </component>
-</project>
