@@ -1,0 +1,8 @@
+#!/bin/bash
+# 获取应用程序路径
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# 跳转到Resources目录
+cd "$DIR/../Resources"
+
+# 直接使用系统Java运行（兼容Java 8）
+java -cp "clipboard-manager-java8.jar" com.zhansc.clipboard.ClipboardManager

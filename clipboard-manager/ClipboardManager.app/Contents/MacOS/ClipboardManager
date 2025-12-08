@@ -1,0 +1,24 @@
+#!/bin/bash
+# 获取应用程序路径
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# 跳转到Resources目录
+cd "$DIR/../Resources"
+
+# 检查系统是否有Java 11+
+JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
+
+if [[ $JAVA_VERSION -ge 11 ]]; then
+    # 使用系统Java运行
+    java -cp "clipboard-manager.jar" com.zhansc.clipboard.ClipboardManager
+else
+    # 检查是否有所需的JRE
+    if [ -d "jre" ]; then
+        # 使用内置JRE运行
+        ./jre/bin/java -cp "clipboard-manager.jar" com.zhansc.clipboard.ClipboardManager
+    else
+        # 弹出对话框提示用户需要安装Java 11+
+        osascript -e 'display dialog "此应用程序需要Java 11或更高版本才能运行。\n请访问https://adoptium.net下载并安装最新版本的Java。" with title "缺少Java环境" buttons {"OK"} default button "OK"'
+        # 打开Java下载页面
+        open https://adoptium.net
+    fi
+fi
