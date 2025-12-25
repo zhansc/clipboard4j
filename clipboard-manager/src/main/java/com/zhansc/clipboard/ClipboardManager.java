@@ -23,7 +23,7 @@ import java.time.format.DateTimeFormatter;
  * @description 剪贴板管理器主界面
  * @date 12/4/25 20:07
  */
-public class ClipboardManager extends JFrame {
+public class ClipboardManager extends JFrame implements ClipboardUpdateListener {
     private final ClipboardHistory history;
     private final ClipboardMonitor monitor;
     private JList<ClipboardItem> itemList;
@@ -34,7 +34,7 @@ public class ClipboardManager extends JFrame {
     private JLabel copyStatusLabel; // 用于显示复制状态的标签
     
     private static final String DEFAULT_PLACEHOLDER = "请输入关键词";
-
+    
     public ClipboardManager() {
         // 初始化组件
         history = new ClipboardHistory(100);
@@ -53,11 +53,12 @@ public class ClipboardManager extends JFrame {
         this.createUI();
         
         // 启动剪贴板监控
+        monitor.setUpdateListener(this);
         monitor.start();
         
         // 定期刷新列表以显示新增的剪贴板内容
-        Timer refreshTimer = new Timer(4000, e -> refreshList());
-        refreshTimer.start();
+//        Timer refreshTimer = new Timer(500, e -> refreshList());
+//        refreshTimer.start();
         
         // 注册全局键盘监听器
 //        this.registerGlobalKeyListener();
@@ -366,7 +367,6 @@ public class ClipboardManager extends JFrame {
      * 刷新列表显示
      */
     private void refreshList() {
-        System.out.println("刷新列表，当前历史记录数: " + history.size());
         // 只有在搜索框为空时才刷新整个列表，避免干扰用户的搜索结果
         String searchText = searchField.getText();
         if (searchText.trim().isEmpty()) {
@@ -439,7 +439,10 @@ public class ClipboardManager extends JFrame {
                 java.awt.datatransfer.Clipboard clipboard =
                         Toolkit.getDefaultToolkit().getSystemClipboard();
                 clipboard.setContents(new StringSelection(text), null);
-                copyStatusLabel.setText("已复制到剪贴板: " + selected.getTextPreview());
+                // 限制复制状态文本长度，防止遮挡左侧记录数信息
+                String previewText = selected.getTextPreview();
+                String truncatedText = this.truncateText(previewText, 30); // 限制为30个字符
+                copyStatusLabel.setText("已复制到剪贴板: " + truncatedText);
                 // 将该项添加到历史记录的最前面
                 history.addItem(selected);
                 this.refreshList();
@@ -521,7 +524,9 @@ public class ClipboardManager extends JFrame {
             setBorder(new EmptyBorder(5, 10, 5, 10));
             
             iconLabel = new JLabel();
-            iconLabel.setPreferredSize(new Dimension(20, 20));
+            iconLabel.setPreferredSize(new Dimension(35, 20));
+            iconLabel.setHorizontalAlignment(JLabel.CENTER);
+            iconLabel.setFont(iconLabel.getFont().deriveFont(9f));
             
             contentLabel = new JLabel();
             contentLabel.setVerticalAlignment(JLabel.TOP);
@@ -592,7 +597,8 @@ public class ClipboardManager extends JFrame {
             // 设置选中状态样式
             if (isSelected) {
                 setBackground(list.getSelectionBackground());
-                contentLabel.setForeground(list.getSelectionForeground());
+                // 保持内容标签的前景色为黑色，避免在选中状态下文本不可见
+                contentLabel.setForeground(Color.BLACK);
             } else {
                 setBackground(list.getBackground());
                 contentLabel.setForeground(list.getForeground());
@@ -601,24 +607,27 @@ public class ClipboardManager extends JFrame {
             // 根据内容类型设置图标和文本
             switch (value.getContentType()) {
                 case TEXT:
-                    iconLabel.setText("T");
+                    iconLabel.setText("Text");
                     iconLabel.setForeground(Color.BLUE);
+                    iconLabel.setToolTipText("文本类型");
                     contentLabel.setText(value.getTextPreview());
                     break;
                 case URL:
-                    iconLabel.setText("U");
+                    iconLabel.setText("Link");
                     iconLabel.setForeground(Color.GREEN);
+                    iconLabel.setToolTipText("链接类型");
                     contentLabel.setText("<html><a href='#'>" + value.getTextPreview() + "</a></html>");
                     break;
                 case IMAGE:
-                    iconLabel.setText("I");
+                    iconLabel.setText("Image");
                     iconLabel.setForeground(Color.ORANGE);
+                    iconLabel.setToolTipText("图片类型");
                     displayImagePreview(value);
                     break;
             }
             
             // 设置时间显示
-            timeLabel.setText(value.getTimestamp().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+            timeLabel.setText(value.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             
             this.revalidate();
             this.repaint();
@@ -667,6 +676,34 @@ public class ClipboardManager extends JFrame {
                 contentLabel.setText(item.getTextPreview());
             }
         }
+    }
+    
+    @Override
+    public void onClipboardUpdated() {
+        // 在事件调度线程中执行UI更新
+        SwingUtilities.invokeLater(() -> {
+            // 只有在搜索框为空时才刷新整个列表，避免干扰用户的搜索结果
+            String searchText = searchField.getText();
+            if (searchText.trim().isEmpty()) {
+                this.refreshList();
+            } else {
+                // 如果有搜索关键词，只更新状态栏
+                this.updateStatus();
+            }
+        });
+    }
+    
+    /**
+     * 截断过长的文本，防止遮挡左侧状态信息
+     * @param text 原始文本
+     * @param maxLength 最大长度
+     * @return 截断后的文本
+     */
+    private String truncateText(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text;
+        }
+        return text.substring(0, maxLength) + "...";
     }
     
     public static void main(String[] args) {

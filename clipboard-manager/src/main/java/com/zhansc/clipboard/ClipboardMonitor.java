@@ -32,12 +32,22 @@ public class ClipboardMonitor {
     // 上次内容的时间戳
     private long lastContentTimestamp;
     
+    // 剪贴板更新监听器
+    private ClipboardUpdateListener updateListener;
+    
     public ClipboardMonitor(ClipboardHistory history) {
         this.history = history;
         this.clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
         this.lastContent = null;
         this.lastContentType = null;
         this.lastContentTimestamp = 0;
+    }
+    
+    /**
+     * 设置剪贴板更新监听器
+     */
+    public void setUpdateListener(ClipboardUpdateListener updateListener) {
+        this.updateListener = updateListener;
     }
     
     private ScheduledExecutorService scheduler;
@@ -81,6 +91,11 @@ public class ClipboardMonitor {
                 history.addItem(item);
                 // 更新上次内容的引用和时间戳
                 this.updateLastContent(item);
+                
+                // 通知监听器剪贴板已更新
+                if (updateListener != null) {
+                    updateListener.onClipboardUpdated();
+                }
             }
         } catch (Exception e) {
             System.err.println("监控剪贴板时发生错误: " + e.getMessage());
@@ -112,20 +127,15 @@ public class ClipboardMonitor {
         if (currentItem.getContentType() != lastContentType) {
             return false;
         }
-        
-        // 检查时间间隔，如果在短时间内（1秒内）则进一步判断是否为相同内容
-        long timeDiff = System.currentTimeMillis() - lastContentTimestamp;
-        if (timeDiff < 1000) {
-            // 对于文本和URL，精确比较内容
-            if (currentItem.getContentType() == ContentTypeEnum.TEXT ||
+
+        // 对于文本和URL，精确比较内容
+        if (currentItem.getContentType() == ContentTypeEnum.TEXT ||
                 currentItem.getContentType() == ContentTypeEnum.URL) {
-                return currentItem.getContent().equals(lastContent);
-            }
-            
-            // 对于图片，在短时间内认为是相同的
-            return currentItem.getContentType() == ContentTypeEnum.IMAGE;
+            return currentItem.getContent().equals(lastContent);
         }
-        return false;
+
+        // 对于图片，在短时间内认为是相同的
+        return currentItem.getContentType() == ContentTypeEnum.IMAGE;
     }
     
     /**
