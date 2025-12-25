@@ -17,6 +17,11 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 
+import com.github.kwhat.jnativehook.GlobalScreen;
+import com.github.kwhat.jnativehook.NativeHookException;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
+
 /**
  * @author zhanshuchan
  * @version 1.0
@@ -34,6 +39,13 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
     private JLabel copyStatusLabel; // 用于显示复制状态的标签
     
     private static final String DEFAULT_PLACEHOLDER = "请输入关键词";
+    
+    private static final int SHIFT_MASK = 1 << 6; // Shift键掩码
+    private static final int META_MASK = 1 << 22; // Meta键掩码 (Command键在Mac上)
+    
+    // 用于跟踪当前按下的键
+    private boolean shiftPressed = false;
+    private boolean metaPressed = false;
     
     public ClipboardManager() {
         // 初始化组件
@@ -65,6 +77,68 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
         
         // 注册系统托盘图标
 //        this.registerSystemTray();
+        
+        // 注册全局键盘监听器
+        this.registerGlobalHotkey();
+    }
+    
+    /**
+     * 注册全局热键监听器
+     */
+    private void registerGlobalHotkey() {
+        try {
+            // 注册全局键盘监听器
+            GlobalScreen.registerNativeHook();
+            
+            // 添加键盘监听器
+            GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
+                @Override
+                public void nativeKeyPressed(NativeKeyEvent e) {
+                    // 检测Shift键
+                    if (e.getKeyCode() == NativeKeyEvent.VC_SHIFT) {
+                        shiftPressed = true;
+                    }
+                    // 检测Meta键 (Command键)
+                    else if (e.getKeyCode() == NativeKeyEvent.VC_META) {
+                        metaPressed = true;
+                    }
+                    
+                    // 检测C键，当Shift和Command键都按下时
+                    if (shiftPressed && metaPressed && e.getKeyCode() == NativeKeyEvent.VC_V) {
+                        // 在事件调度线程中执行界面操作
+                        SwingUtilities.invokeLater(() -> {
+                            toggleVisibility();
+                            // 确保搜索框获得焦点
+                            if (searchField != null) {
+                                searchField.requestFocusInWindow();
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void nativeKeyReleased(NativeKeyEvent e) {
+                    // 释放Shift键
+                    if (e.getKeyCode() == NativeKeyEvent.VC_SHIFT) {
+                        shiftPressed = false;
+                    }
+                    // 释放Meta键 (Command键)
+                    else if (e.getKeyCode() == NativeKeyEvent.VC_META) {
+                        metaPressed = false;
+                    }
+                }
+
+                @Override
+                public void nativeKeyTyped(NativeKeyEvent e) {
+                    // 不需要实现
+                }
+            });
+            
+            System.out.println("全局热键监听器注册成功");
+        } catch (NativeHookException ex) {
+            System.err.println("注册全局热键监听器失败: " + ex.getMessage());
+            System.err.println("提示: 在macOS上，您可能需要在系统偏好设置 > 安全性与隐私 > 辅助功能中授权此应用");
+        }
     }
     
     /**
@@ -724,5 +798,15 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
             System.out.println("ClipboardManager 实例创建完成");
             // 窗口默认隐藏，通过系统托盘或其它方式触发显示
         });
+        
+        // 添加关闭钩子以确保在程序退出时注销全局键盘钩子
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                GlobalScreen.unregisterNativeHook();
+                System.out.println("全局热键监听器已注销");
+            } catch (Exception e) {
+                System.err.println("注销全局热键监听器时出错: " + e.getMessage());
+            }
+        }));
     }
 }

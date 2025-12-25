@@ -1,3 +1,5 @@
 Manifest-Version: 1.0
-Created-By: 1.8.0_382 (Azul Systems, Inc.)
+Main-Class: com.zhansc.clipboard.ClipboardManager
+Class-Path: jnativehook-2.1.0.jar
+Created-By: 21.0.9 (Azul Systems, Inc.)
 

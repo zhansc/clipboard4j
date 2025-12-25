@@ -15,7 +15,7 @@ if [ ! -x "$JAVA_HOME/bin/java" ]; then
     else
         # 尝试直接使用java命令
         if command -v java >/dev/null 2>&1; then
-            java -cp "$APP_ROOT/Resources/ClipboardManager.jar:." com.zhansc.clipboard.ClipboardManager
+            java -cp "$APP_ROOT/Resources/ClipboardManager.jar:$APP_ROOT/Resources/jnativehook-2.2.2.jar:." com.zhansc.clipboard.ClipboardManager
             exit $?
         else
             # 弹出错误对话框
@@ -26,4 +26,4 @@ if [ ! -x "$JAVA_HOME/bin/java" ]; then
 fi
 
 # 运行应用程序
-"$JAVA_HOME/bin/java" -cp "$APP_ROOT/Resources/ClipboardManager.jar:." com.zhansc.clipboard.ClipboardManager
+"$JAVA_HOME/bin/java" -cp "$APP_ROOT/Resources/ClipboardManager.jar:$APP_ROOT/Resources/jnativehook-2.2.2.jar:." com.zhansc.clipboard.ClipboardManager
