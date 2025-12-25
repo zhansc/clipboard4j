@@ -16,9 +16,11 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 
 import com.github.kwhat.jnativehook.GlobalScreen;
 import com.github.kwhat.jnativehook.NativeHookException;
+import com.github.kwhat.jnativehook.dispatcher.SwingDispatchService;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 
@@ -87,6 +89,9 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
      */
     private void registerGlobalHotkey() {
         try {
+            // 设置 Swing 事件调度
+            GlobalScreen.setEventDispatcher(new SwingDispatchService());
+            
             // 注册全局键盘监听器
             GlobalScreen.registerNativeHook();
             
@@ -103,11 +108,18 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
                         metaPressed = true;
                     }
                     
-                    // 检测C键，当Shift和Command键都按下时
-                    if (shiftPressed && metaPressed && e.getKeyCode() == NativeKeyEvent.VC_V) {
+                    // 检测A/C/V键，当Shift和Command键都按下时 (Shift+Command+A/C/V)
+                    if (shiftPressed && metaPressed && Arrays.asList(NativeKeyEvent.VC_A, NativeKeyEvent.VC_C, NativeKeyEvent.VC_V).contains(e.getKeyCode())) {
                         // 在事件调度线程中执行界面操作
                         SwingUtilities.invokeLater(() -> {
                             toggleVisibility();
+
+                            // 等窗口可见后再执行搜索框聚焦
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException ex) {
+                                throw new RuntimeException(ex);
+                            }
                             // 确保搜索框获得焦点
                             if (searchField != null) {
                                 searchField.requestFocusInWindow();
@@ -126,6 +138,15 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
                     else if (e.getKeyCode() == NativeKeyEvent.VC_META) {
                         metaPressed = false;
                     }
+                    
+                    // 确保在释放任一键时重置状态，避免状态混乱
+                    if (e.getKeyCode() == NativeKeyEvent.VC_V || 
+                        e.getKeyCode() == NativeKeyEvent.VC_C || 
+                        e.getKeyCode() == NativeKeyEvent.VC_A) {
+                        // 释放快捷键相关键时重置，确保组合键状态正确
+                        shiftPressed = false;
+                        metaPressed = false;
+                    }
                 }
 
                 @Override
@@ -134,7 +155,7 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
                 }
             });
             
-            System.out.println("全局热键监听器注册成功");
+            System.out.println("全局热键监听器注册成功，支持的快捷键: Shift+Command+V, Shift+Command+C, Shift+Command+A");
         } catch (NativeHookException ex) {
             System.err.println("注册全局热键监听器失败: " + ex.getMessage());
             System.err.println("提示: 在macOS上，您可能需要在系统偏好设置 > 安全性与隐私 > 辅助功能中授权此应用");
@@ -263,8 +284,16 @@ public class ClipboardManager extends JFrame implements ClipboardUpdateListener 
             this.setState(JFrame.NORMAL);
             // 确保窗口在最前面
             this.toFront();
+            // 确保窗口获得焦点
+            this.requestFocus();
             // 让搜索框获得焦点
-            searchField.requestFocusInWindow();
+            SwingUtilities.invokeLater(() -> {
+                if (searchField != null) {
+                    searchField.requestFocusInWindow();
+                    // 选择所有文本，方便用户直接输入
+                    searchField.selectAll();
+                }
+            });
         }
     }
     
